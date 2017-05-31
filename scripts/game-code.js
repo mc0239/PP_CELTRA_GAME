@@ -37,7 +37,6 @@ var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
  // map --> Array za celotno mapo, potrebno za postavitev elementov
  // tiles --> Array za same slikice, potrebno za izris
  // width/height se nastavita na podlagi resolucije ekrana
- // nextPossibleJump je za preverjanje doublejump-a
  */
 const keys = [];
 const map = [];
@@ -45,7 +44,6 @@ const tiles = [];
 const all_audio=[];
 let widthCols = -1;
 let heightCols = -1;
-let nextJumpPossible = false;
 
 //Spremenljivka za čekiranje, ali smo na telefonu
 let onphone=false;
@@ -370,8 +368,9 @@ function initPlayer() {
         y : heightCols/2,
         width : 1,
         height : 1,
-        speed : 0.1,
-        jumping: false,
+        speed : 0.15,
+        airborne: false,
+        canBuild: false,
         numofjumps: powerJumps,
         draw: function(){
             let onScreenX = this.x - camera.x;
@@ -435,7 +434,9 @@ const draw = function (){
     player.draw();
 
     // draw debug hud
-    coin.innerHTML = "<br/>Player pos: (" + player.x + "," + player.y + ")<br/>" + "Camera pos,rel.center: (" + camera.x + "," + camera.y + "," + camera.relativeCenter + ")<br/>";
+    debugHud.innerHTML = 
+        "Player (x,y,air,build): (" + Math.round(player.x*1000)/1000 + "," + Math.round(player.y*1000)/1000 + ",<br />" + player.airborne + "," + player.canBuild + ")<br/>" + 
+        "Camera (x,y,rcnt): (" + Math.round(camera.x*1000)/1000 + "," + Math.round(camera.y*1000)/1000 + "," + camera.relativeCenter + ")<br/>";
 
     /*
      * Funkcija za izris same mape, +4, -4 zaradi tega ker moramo pre-renderat vsaj nekaj frame-ov naprej, da je
@@ -559,8 +560,6 @@ function update(){
  * Inicializacija kontrol za telefon, touchstart in touchend eventi, ko pritisnemo in spustimo
  */
 
-//Variable, za postavljanje platform
-let canBuild=true;
 /*
  * Objekt, ki drži event in čekiranje za touch evente
  */
@@ -643,7 +642,7 @@ function mobileBasedGame(){/*
     player.y+=gravity*/
 }
 
-
+let nextJumpPossible = false;
 //Enako kot zgoraj, vendar da se uporablajo druge tipke
 function computerBasedGame(){
     if(canDestory.check){
@@ -654,62 +653,51 @@ function computerBasedGame(){
         }
     }
 
-
-    if(isCollisionAbove()) {
-        gravity += 0.3;
-        //player.y+=gravity;
-    }
-
-    /*if(collisionDetectionSpecificDown()){
-        nextJumpPossible=false;
-        canBuild=false;
-        player.jumping=false;
-        player.numofjumps=powerJumps;
-        gravity=player.speed;
-    }*/
-
     if(isCollisionBelow()) {
-        nextJumpPossible = true;
-        player.jumping = false;
-        player.numofjumps=powerJumps;
-
+        player.canBuild = false;
+        player.airborne = false;
+        player.numofjumps = powerJumps;
         gravity = 0;
-        player.y = Math.floor(player.y);
+        player.y = Math.floor(player.y) + 0.05;
     }
 
+    if(!isCollisionBelow() && !player.airborne) {
+        player.canBuild = true;
+        player.airborne = true;
+    }
 
-    if(!isCollisionBelow() && !player.jumping){
-        player.jumping=true;
-        canBuild=true;
+    if(isCollisionBelow() && !player.airborne) {
+        if(keys[38]) {
+            playJump();
+            gravity = -0.45;
+            player.airborne = true;
+            player.canBuild = true;
+        }
     }
-    if(!isCollisionBelow() && player.numofjumps>0 && !keys[38]){
-        nextJumpPossible=true;
-        canBuild=true;
+
+    if(!isCollisionBelow() && player.numofjumps > 0 && !keys[38]){
+        nextJumpPossible = true;
     }
-    if(player.jumping && nextJumpPossible && keys[38] && player.numofjumps>0){
-        canBuild=true;
-        gravity=-0.5;
+
+    if(player.airborne && nextJumpPossible && keys[38]){
+        nextJumpPossible = false;
+        gravity = -0.5;
         playJump();
         player.numofjumps--;
     }
 
-    if(isCollisionBelow() && !player.jumping){
-        player.y=player.y-player.speed;
-        if(keys[38]){
-            playJump();
-            canBuild=true;
-            gravity=-0.5;
-            player.jumping=true;
-            player.numofjumps--;
-        }
-    }
-    if((keys[32]) && canBuild){
-        platformCreator();
-        canBuild=false
+    if(player.airborne) {
+        gravity += 0.025;
     }
 
-    if(player.jumping ){
-        gravity+=0.03
+    if(isCollisionAbove()) {
+        gravity += 0.3;
+        player.y += gravity;
+    }
+
+    if((keys[32]) && player.canBuild){
+        platformCreator();
+        player.canBuild = false;
     }
 
     player.y+=gravity;
@@ -742,6 +730,7 @@ function handleWindowResize() {
 function setHudParams(){
     hp = document.getElementById("hp");
     coin = document.getElementById("coin");
+    debugHud = document.getElementById("debug");
     mytiles= document.getElementById("plat");
     mytiles.innerHTML=num_of_platforms;
     hp.innerHTML=player_hp;
@@ -806,9 +795,7 @@ function isCollisionBelow() {
     let tileLeft = map[tileY][Math.floor(x1)];
     let tileRight = map[tileY][Math.floor(x2)];
 
-    if(tileLeft === 1 || tileRight === 1) {
-        return true;
-    }
+    if(tileLeft === 1 || tileRight === 1) return true;
 
     return false;
 }
@@ -817,12 +804,12 @@ function isCollisionAbove() {
     let x1 = player.x;
     let x2 = player.x + player.width;
     let y = player.y;
-    let tileY = Math.floor(y);
+    let tileY = Math.floor(y)+1;
 
     let tileLeft = map[tileY][Math.floor(x1)];
     let tileRight = map[tileY][Math.floor(x2)];
 
-    if(tileLeft === 1 || tileRight === 1) if(y - tileY < 0.075) return true;
+    if(tileLeft === 1 || tileRight === 1) return true;
 
     return false;
 }
