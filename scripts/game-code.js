@@ -539,12 +539,8 @@ function initEnemy(){
  *
  */
 function update(){
-    if(onphone){
-        mobileBasedGame()
-    }
-    else{
-        computerBasedGame()
-    }
+    playerControl(onphone);
+    
     generateEnemy();
     controls();
 
@@ -553,7 +549,6 @@ function update(){
     checkIfGameWon();
 
     requestAnimationFrame(update);
-
 }
 
 /*
@@ -568,83 +563,10 @@ let canDestory ={
     event:null,
 };
 
-/*
- *Funkcija, ki je potrebna za pravilno obnašanje na telefonu, problem je bil z key-i, ker v resnici ne uporablamo
- * tipk, vendar vežemo event listenerje na dom objekte, teli pa poslušajo ali smo tappali, ali ne.
- */
-function mobileBasedGame(){/*
-    //Nov feature, z touch eventi ali mouse clickom lahko uničuješ mapo
-    if(canDestory.check){
-        let posX = Math.ceil(worldOffsetX+canDestory.event.touches[0].pageX/tileSide) - Math.floor(tileOffsetX/tileSide+0.25);
-        let posY = Math.ceil(canDestory.event.touches[0].pageY/tileSide + tileOffsetY+0.25);
-        if(map[posY][posX]===1 && posY!=1){
-            map[posY][posX]=0;
-        }
-    }
-
-    //Preverimo če smo se zabili v zgornji del bloka
-    if(collisionDetectionSpecificUp()){
-        gravity+=0.3;
-        player.y+=player.speed;
-    }
-
-    //Preverimo če smo na tleh
-    if(collisionDetectionSpecificDown()){
-        nextJumpPossible=false;
-        canBuild=false;
-        player.jumping=false;
-        player.numofjumps=powerJumps;
-        gravity=player.speed
-    }
-
-    //Preverimo, če nismo na tleh in ne skačemo
-    if(!collisionDetectionSpecificDownDontChange() && !player.jumping){
-        player.jumping=true;
-        canBuild=true
-    }
-    //Preverimo če lahko double jump-amo in nismo na tleh
-    if(!collisionDetectionSpecificDownDontChange() && player.numofjumps>0 && !keys[422]){
-        nextJumpPossible=true;
-        canBuild=true
-    }
-
-    //Preverimo če lahko double jump-amo in smo na tleh
-    if(player.jumping && nextJumpPossible && keys[422] && player.numofjumps>0){
-        canBuild=true;
-        gravity=-0.5;
-        player.numofjumps--;
-    }
-
-    //Preverimo če lahko sploh skačemo, in da smo na tleh
-    if(collisionDetectionSpecificDownDontChange() && !player.jumping){
-        player.y=player.y-player.speed;
-        if(keys[422]){
-
-            canBuild=true;
-            gravity=-0.5;
-            player.jumping=true;
-            player.numofjumps--;
-        }
-    }
-
-    //Preverimo če smo pritisnili gumb za postavitev platforme
-    if((keys[423]) && canBuild){
-        platformCreator();
-        canBuild=false
-    }
-
-    //Če smo v stanju skakanja povečujemo gravitacijo/padamo
-    if(player.jumping){
-        gravity+=0.03
-    }
-
-    //Gravitacija vedno vpliva navzdol
-    player.y+=gravity*/
-}
-
 let nextJumpPossible = false;
 //Enako kot zgoraj, vendar da se uporablajo druge tipke
-function computerBasedGame(){
+function playerControl(isOnPhone){
+    //Nov feature, z touch eventi ali mouse clickom lahko uničuješ mapo - ne dela zaenkrat zaradi reimplementacije s kamero
     if(canDestory.check){
         let posX = Math.ceil(worldOffsetX+canDestory.event.pageX/tileSide) - Math.floor(tileOffsetX/tileSide);
         let posY = Math.ceil(canDestory.event.pageY/tileSide + tileOffsetY+0.25);
@@ -652,6 +574,9 @@ function computerBasedGame(){
             map[posY][posX]=0;
         }
     }
+
+    let pressJump = (!isOnPhone && keys[38]) || (isOnPhone && keys[422]);
+    let pressBuild = (!isOnPhone && keys[32]) || (isOnPhone && keys[423]);
 
     if(isCollisionBelow()) {
         player.canBuild = false;
@@ -667,7 +592,7 @@ function computerBasedGame(){
     }
 
     if(isCollisionBelow() && !player.airborne) {
-        if(keys[38]) {
+        if(pressJump) {
             playJump();
             gravity = -0.45;
             player.airborne = true;
@@ -675,11 +600,11 @@ function computerBasedGame(){
         }
     }
 
-    if(!isCollisionBelow() && player.numofjumps > 0 && !keys[38]){
+    if(!isCollisionBelow() && player.numofjumps > 0 && !pressJump){
         nextJumpPossible = true;
     }
 
-    if(player.airborne && nextJumpPossible && keys[38]){
+    if(player.airborne && nextJumpPossible && pressJump){
         nextJumpPossible = false;
         gravity = -0.5;
         playJump();
@@ -691,14 +616,17 @@ function computerBasedGame(){
     }
 
     if(isCollisionAbove()) {
-        gravity += 0.3;
+        gravity += 0.5;
         player.y += gravity;
     }
 
-    if((keys[32]) && player.canBuild){
+    if(pressBuild && player.canBuild){
         platformCreator();
         player.canBuild = false;
     }
+
+    if(gravity > 0.5) gravity = 0.5;
+    if(gravity < -0.5) gravity = -0.5;
 
     player.y+=gravity;
 }
@@ -1234,7 +1162,7 @@ function clearPlayerArea(playerpos){
 //Nastavimo endgame screen, ugasnim igro na grd način vedar deluje, za ponoven zagon samo refreshamo igro
 function endGameLose(){
     let end = document.getElementById("end");
-    end.innerHTML="YOU LOST<br> your score was "+player_coins+", <br> You traveled "+Math.floor(distance_traveled/tileSide)+" blocks";
+    end.innerHTML="YOU LOST<br> your score was "+player_coins+", <br> You traveled "+Math.floor(player.x)+" blocks";
     all_audio[4].play();
     ctx=null;
 
@@ -1243,7 +1171,7 @@ function endGameLose(){
 function checkIfGameWon(){
     if(parseInt(document.getElementById("coin").innerHTML)>30) {
         let end = document.getElementById("end");
-        end.innerHTML = "YOU WON<br> CONGRATS MY DUDE <br> You traveled "+Math.floor(distance_traveled/tileSide)+"blocks";
+        end.innerHTML = "YOU WON<br> CONGRATS MY DUDE <br> You traveled "+Math.floor(player.x)+"blocks";
         all_audio[3].play();
         ctx = null;
     }
@@ -1371,37 +1299,13 @@ const controls = () =>{
         if (keys[39] || keys[421]) {
             if(!isCollisionRight()) {
                 player.x+=player.speed;
-                distance_traveled += player.speed*tileSide;
             }
-            //collisionDetectionSpecificRight();
-            /*if(player.x+player.width > (canvas.width/widthCols)-(widthCols/4) ) {
-                if(Math.abs(tileOffsetX) >= tileSide) {
-                    tileOffsetX = 0;
-                    worldOffsetX++;
-                } else {
-                    distance_traveled -= player.speed*tileSide;
-                    tileOffsetX -= player.speed*tileSide;
-                }
-            }*/
         }
         //levo
         if (keys[37] || keys[420]) {
             if(!isCollisionLeft()) {
                 player.x-=player.speed;
-                distance_traveled-=player.speed*tileSide;
             }
-            //collisionDetectionSpecificLeft();
-
-            /*if(player.x<widthCols/4){
-                if(tileOffsetX>=tileSide){
-                    tileOffsetX=0;
-                    worldOffsetX--;
-                }
-                else{
-                    distance_traveled+=player.speed*tileSide;
-                    tileOffsetX+=player.speed*tileSide;
-                }
-            }*/
         }
     }
 };
