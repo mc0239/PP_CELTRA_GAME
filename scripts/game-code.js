@@ -17,11 +17,9 @@ Made by Primož Pečar, fri vsš 2 letnik
 //Globalni variabli, uporabljeni čez cel projekt
 //Čeprav uporabljam EMCA script 6, je problem na iOS-u, saj mu ni všeč da so globalne spremenjljivke definirane z let/const
 //popravil tako da uporabim var
-var canvas, ctx, width, height, player, camera,
+var canvas, ctx, width, height, player, camera, hudElements,
     worldOffsetX = 0,
-    tileOffsetX = 0,
     worldOffsetY = 0,
-    tileOffsetY = 0,
     tileSide = 0,
     gravity = 0.2,
     player_hp=3,
@@ -94,7 +92,6 @@ document.body.addEventListener("keyup", function(e) {
  * initPlayer --> inicializiramo playerja, njegove funkcije
  * initTiles --> inicializiramo tile-sette, za izris
  * createTileMap --> naredimo naključno generiranje mape, različni objekti, powerup-i
- * setHudParams --> nastavimo hp, powerupe, "kovance"
  * makeMapDynamic --> dodamo različne elemente v že obstoječo mapo
  * generateRandomPowerUps --> dodamo lune, za platforme
  *
@@ -104,12 +101,12 @@ const initGame = function(){
     onphone=checkIfRunningOnPhone();
     initCanvas();
     initCamera();
+    initHudElements();
     initPlayer();
     initTiles();
     initAutio();
     all_audio[2].play();
     createTileMap();
-    setHudParams();
     makeMapDynamic();
     generateRandomPowerUps();
 
@@ -164,7 +161,7 @@ const initGame = function(){
      * Kamera skrbi za "pogled" na določen del sveta in rendera samo tisti specifičen del.
      * Player se vedno nahaja na relativnemCentru (glede na X).
      */
-    function initCamera(){
+    function initCamera() {
         camera = {
             x: 0,
             y: 0,
@@ -172,6 +169,28 @@ const initGame = function(){
             height: canvas.height/tileSide,
             relativeCenter: Math.floor(canvas.width/tileSide/2)
         }
+    }
+
+    /*
+     * HUDelements vključuje onscreen text za kovančiče, platforme, game over screen, ipd.
+     * Na začetku izrišemo samo highscore. Hud updejtamo samo po potrebi, ne vsak frame, da
+     * da pridobimo malo na performancah.
+     */
+    function initHudElements() {
+        hudElements = {
+            lives: document.getElementById("hp"),
+            coins: document.getElementById("coin"),
+            platforms: document.getElementById("plat"),
+            debug: document.getElementById("debug"),
+            gameOverDisplay: document.getElementById("end"),
+
+            update: function() {
+                hudElements.lives.innerHTML = player_hp;
+                hudElements.coins.innerHTML = player_coins;
+                hudElements.platforms.innerHTML=num_of_platforms;
+            }
+        }
+        hudElements.update();
     }
 
     /*
@@ -422,7 +441,9 @@ function initAutio(){
 
 const draw = function (){
     ctx.clearRect(0,0, width, height);
+    
     drawTileMap();
+    
     let currEnemy=checkIfEnemyInRange();
     if(currEnemy instanceof Object){
         if(Math.floor(currEnemy.x)===Math.floor(player.x) && Math.floor(currEnemy.y)===Math.floor(player.y) ||
@@ -436,10 +457,11 @@ const draw = function (){
         currEnemy.x-=0.2
 
     }
+    
     player.draw();
 
     // draw debug hud
-    debugHud.innerHTML = 
+    hudElements.debug.innerHTML = 
         "Player (x,y,air,build): (" + Math.round(player.x*1000)/1000 + "," + Math.round(player.y*1000)/1000 + ",<br />" + player.airborne + "," + player.canBuild + ")<br/>" + 
         "Camera (x,y,rcnt): (" + Math.round(camera.x*1000)/1000 + "," + Math.round(camera.y*1000)/1000 + "," + camera.relativeCenter + ")<br/>" +
         "Misc (mHoldD,nJmpPsbl): (" + mouseHoldDown + "," + nextJumpPossible + ")<br />";
@@ -553,7 +575,7 @@ function update(){
     controls();
 
     draw();
-    checkifdied();
+    checkIfDied();
     checkIfGameWon();
 
     requestAnimationFrame(update);
@@ -577,7 +599,6 @@ function clickControl() {
         mouseHoldDown = true;
         let posX = Math.floor(camera.x+canDestory.event.pageX/tileSide);
         let posY = Math.floor(canDestory.event.pageY/tileSide)+1;
-        console.log(posX + "," + posY);
         if(map[posY][posX] === 1 && posY != 1){
             map[posY][posX] = 0;
         }
@@ -666,20 +687,6 @@ function handleWindowResize() {
     draw();
 }
 
-
-//HUD ELEMENTS
-/*
- * Natavimo parametre, za prikaz statistik
- */
-function setHudParams(){
-    hp = document.getElementById("hp");
-    coin = document.getElementById("coin");
-    debugHud = document.getElementById("debug");
-    mytiles= document.getElementById("plat");
-    mytiles.innerHTML=num_of_platforms;
-    hp.innerHTML=player_hp;
-    coin.innerHTML=player_coins;
-}
 /*
  * Funkcije za preverjanje, ali je trenuten tile nekaj na čimer lahko stojimo, ali je kovanec, ali je powerup
  */
@@ -714,6 +721,8 @@ function isCollisionRight() {
 
     if(tileToRight === 1) if(tileX - x < 0.15) return true;
 
+    if(tileToRight !== 0) if(tileX - x < 0) collisionWithSomething(Math.round(y), tileX);
+
     return false;
 }
 
@@ -724,6 +733,8 @@ function isCollisionLeft() {
     let tileToLeft = map[Math.round(y)][tileX];
 
     if(tileToLeft === 1) if(x - tileX-1 < 0.15) return true;
+
+    if(tileToLeft !== 0) if(x - tileX-1 < 0) collisionWithSomething(Math.round(y), tileX);
 
     return false;
 }
@@ -739,6 +750,9 @@ function isCollisionBelow() {
 
     if(tileLeft === 1 || tileRight === 1) return true;
 
+    if(tileLeft !== 0) collisionWithSomething(Math.floor(x1), tileY);
+    if(tileRight !== 0) collisionWithSomething(Math.floor(x2), tileY);
+
     return false;
 }
 
@@ -753,56 +767,83 @@ function isCollisionAbove() {
 
     if(tileLeft === 1 || tileRight === 1) return true;
 
+    if(tileLeft !== 0) collisionWithSomething(Math.floor(x1), tileY);
+    if(tileRight !== 0) collisionWithSomething(Math.floor(x2), tileY);
+
     return false;
 }
 
+function collisionWithSomething(x, y) {
+    if(typeof map[y] == 'undefined') return;
+    let tileType = map[y][x];
+    switch(tileType) {
+        case 3: // sun pickup
+            map[y][x] = 0;
+            playCoin();
+            player_coins++;
+            break;
+        case 2: // moon pickup
+            map[y][x] = 0;
+            num_of_platforms += 2;
+            break;
+        case 7: // heart pickup
+            map[y][x] = 0;
+            player_hp++;
+            break;
+        case 11: // speed pickup
+            map[y][x] = 0;
+            player.speed += 0.02;
+            break;
+    }
+    hudElements.update();
+}
+
 /*
- * Ko igralec umre in ima še življenj za restart, postavimo parametre HUD-a in repozicioniramo igralca.
+ *  Ko igralec umre in ima še življenj za restart, postavimo parametre HUD-a in repozicioniramo igralca.
+ *  Respawn player - respawna igralca nekoliko nazaj, počisti območje in postavi platformo za varen respawn
  */
-function restartCurrentlevel(){
+function respawnPlayer() {
+    let tempX = player.x;
     initPlayer();
-    setHudParams();
+    player.x = tempX - 10;
+    
+    let pY = Math.ceil(player.y);
+    let pX = Math.ceil(player.x);
+
+    map[pY-1][pX-2]=0;
+    map[pY-1][pX-1]=0;
+    map[pY-1][pX  ]=0;
+    map[pY-1][pX+1]=0;
+
+    map[pY  ][pX-2]=0;
+    map[pY  ][pX-1]=0;
+    map[pY  ][pX  ]=0;
+    map[pY  ][pX+1]=0;
+    
+    map[pY+1][pX-2]=0;
+    map[pY+1][pX-1]=0;
+    map[pY+1][pX  ]=0;
+    map[pY+1][pX+1]=0;
+
+    map[pY+2][pX-2]=1;
+    map[pY+2][pX-1]=1;
+    map[pY+2][pX  ]=1;
+    map[pY+2][pX+1]=1;
 }
 
 //Funkcija ki preverja ali je igralec padel v luknjo, v primeru da je zmanjšamo življenje in postavimo igralca na neko
 // igralno površino, iz katere se bo lahko normalno premikal naprej.
-function checkifdied(){
-    if(Math.floor(player.y)>heightCols){
+function checkIfDied() {
+    if(Math.floor(player.y) > heightCols) {
         all_audio[5].play();
-        try{
-        window.navigator.vibrate(200);
-        }
-        catch(err){
+        try {
+            window.navigator.vibrate(200);
+        } catch(err){
             //Grd način za reševanje vibrate težav na iOS napravah, sicer deluje normalno
         }
         player_hp--;
-        hp.innerHTML=player_hp;
-        restartCurrentlevel();
-
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+2]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+2]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+2]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+1]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+2]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+1]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)-1]=1;
-
+        hudElements.update();
+        respawnPlayer();
     }
     if(player_hp===0){
         try {
@@ -811,7 +852,7 @@ function checkifdied(){
         catch(err){
             //Grd način za reševanje vibrate težav na iOS napravah, sicer deluje normalno
         }
-        endGameLose()
+        endGameLose();
     }
 }
 
@@ -826,31 +867,7 @@ function killPlayer() {
     }
     player_hp--;
     hp.innerHTML=player_hp;
-    restartCurrentlevel();
-
-    map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)]=0;
-    map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+1]=0;
-    map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+2]=0;
-    map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+1]=0;
-    map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-    map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)]=0;
-    map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+1]=0;
-    map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+2]=0;
-    map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+1]=0;
-    map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-    map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)]=0;
-    map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+1]=0;
-    map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+2]=0;
-    map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+1]=0;
-    map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-    map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)]=1;
-    map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+1]=1;
-    map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+2]=1;
-    map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+1]=1;
-    map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)-1]=1;
+    respawnPlayer();
 
 }
 
@@ -897,14 +914,17 @@ function checkIfGameWon(){
 //Kreira platformo, ubistvu powerup, ki nam omogoča da modificiramo mapo
 function platformCreator(){
     if(num_of_platforms>0){
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+1]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+2]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)+1]=1;
-        map[Math.ceil(player.y+worldOffsetY)+2][Math.ceil(player.x+worldOffsetX)-1]=1;
+        let platY = Math.ceil(player.y)+2;
+        let platX = Math.ceil(player.x)-1;
+        
+        map[platY][platX-2] = 1;
+        map[platY][platX-1] = 1;
+        map[platY][platX  ] = 1;
+        map[platY][platX+1] = 1;
+        map[platY][platX+2] = 1;
         num_of_platforms--;
-        mytiles.innerHTML=parseInt(mytiles.innerHTML)-1;
 
+        hudElements.update();
     }
 }
 
