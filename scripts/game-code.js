@@ -702,7 +702,7 @@ function isCollisionRight() {
     let tileX = Math.ceil(x);
     let tileToRight = map[Math.round(y)][tileX];
 
-    if(tileToRight === 1) if(tileX - x < 0.075) return true;
+    if(tileToRight === 1) if(tileX - x < 0.15) return true;
 
     return false;
 }
@@ -713,7 +713,7 @@ function isCollisionLeft() {
     let tileX = Math.floor(x)-1;
     let tileToLeft = map[Math.round(y)][tileX];
 
-    if(tileToLeft === 1) if(x - tileX-1 < 0.075) return true;
+    if(tileToLeft === 1) if(x - tileX-1 < 0.15) return true;
 
     return false;
 }
