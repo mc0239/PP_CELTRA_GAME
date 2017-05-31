@@ -90,6 +90,7 @@ document.body.addEventListener("keyup", function(e) {
  * Inicializacija same igre
  * onphone --> preverimo, če je trenutna naprava telefon, na podlagi tega spremenimo način igranja
  * initCanvas --> nastavimo vse globalne variable, da jih kličemo čez projekt za izris
+ * initCamera --> inicializiramo kamero za pogled na svet
  * initPlayer --> inicializiramo playerja, njegove funkcije
  * initTiles --> inicializiramo tile-sette, za izris
  * createTileMap --> naredimo naključno generiranje mape, različni objekti, powerup-i
@@ -159,6 +160,10 @@ const initGame = function(){
         heightCols=Math.ceil(height/tileSide);
     }
 
+    /*
+     * Kamera skrbi za "pogled" na določen del sveta in rendera samo tisti specifičen del.
+     * Player se vedno nahaja na relativnemCentru (glede na X).
+     */
     function initCamera(){
         camera = {
             x: 0,
@@ -358,7 +363,7 @@ const initGame = function(){
 };
 
 /*
- * Inicializacija igralca, nastavimo hitrost, ali skače, doublejump
+ * Inicializacija igralca, nastavimo hitrost, ali skače, število air jumpov
  * funkcijo za izris
  *
  */
@@ -439,8 +444,9 @@ const draw = function (){
         "Camera (x,y,rcnt): (" + Math.round(camera.x*1000)/1000 + "," + Math.round(camera.y*1000)/1000 + "," + camera.relativeCenter + ")<br/>";
 
     /*
-     * Funkcija za izris same mape, +4, -4 zaradi tega ker moramo pre-renderat vsaj nekaj frame-ov naprej, da je
+     * Funkcija za izris same mape, +3, -3 zaradi tega ker moramo pre-renderat vsaj nekaj frame-ov naprej, da je
      * smooth transition med premikanjem.
+     * Also sky tile-i se ne rederajo ker samo tolčejo performance, canvas background naredi isti efekt.
      */
 
     function drawTileMap(){
@@ -685,11 +691,9 @@ function checkIfIsSpeed(i,j){
 }
 
 /*
- * Collision detection, uporablja se axis aligned bounding box, na kratko kaj je point tega
- * dejansko gledamo levi zgornji rob, in desni spodnji rob, na poglagi tega gledamo ali je v mapi element, ki je določen
- * kot luna,sonce ali block, in na podlagi tega reagiramo.
- * Preverjamo 3 različne stvari, če je sonce, povečamo score, če je luna povečamo powerup, če je tile pravilno popravimo
- * pozicijo playerja.
+ * Collision detection, above below deluje skorej ok,
+ * levo desno pa je treba spedenat ker se da skočt vmes med polna blocka, čeprav sta čist skup...
+ * !!! MANJKA še detekcija pickup itemov !!!
  */
 
 function isCollisionRight() {
@@ -983,19 +987,7 @@ const controls = () =>{
         }
         keyboardControls();
     }
-    /*
-     * Nevem če bo kdo bral kodo, v primeru da jo bo:
-     * Premikanje deluje na podlagi viewpointa playerja, torej njegov screen, ki ga vidi na telefonu,
-     * potrebno pa je tudi upoštevati, da imamo pred in za njim druge dele mape, zato moramo upoštevati sledeče stvari
-     *      ~tileOffsetX --> Potrebe ko imamo transition med premikanjem levo in desno
-     *      ~worldOffsetX --> Potreben, ker se premikamo po celotnem svetu, in moramo tako zamakniti celoten svet levo
-     *      ali deno
-     * Deluje na sledeč način, v resnici se vedno premikamo v lokalnem viewPointu, v primeru pa da pridemo na 1/4 ekrana
-     * levo ali desno, pa začnemo zamikati CELOTEN SVET, v smer kamor se premika igralec, s tem simuliramo premikanje
-     * igralca po večjem svetu, v resnici je vedno omejen na nek lokalen viewpoint (torej ekran telefona) in premikamo
-     * samo mapo.
-     *
-     */
+
     function keyboardControls() {
         camera.x = player.x - camera.relativeCenter;
         //desno
