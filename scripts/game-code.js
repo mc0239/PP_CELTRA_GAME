@@ -441,7 +441,8 @@ const draw = function (){
     // draw debug hud
     debugHud.innerHTML = 
         "Player (x,y,air,build): (" + Math.round(player.x*1000)/1000 + "," + Math.round(player.y*1000)/1000 + ",<br />" + player.airborne + "," + player.canBuild + ")<br/>" + 
-        "Camera (x,y,rcnt): (" + Math.round(camera.x*1000)/1000 + "," + Math.round(camera.y*1000)/1000 + "," + camera.relativeCenter + ")<br/>";
+        "Camera (x,y,rcnt): (" + Math.round(camera.x*1000)/1000 + "," + Math.round(camera.y*1000)/1000 + "," + camera.relativeCenter + ")<br/>" +
+        "Misc (mHoldD,nJmpPsbl): (" + mouseHoldDown + "," + nextJumpPossible + ")<br />";
 
     /*
      * Funkcija za izris same mape, +3, -3 zaradi tega ker moramo pre-renderat vsaj nekaj frame-ov naprej, da je
@@ -546,6 +547,7 @@ function initEnemy(){
  */
 function update(){
     playerControl(onphone);
+    clickControl();
     
     generateEnemy();
     controls();
@@ -568,18 +570,26 @@ let canDestory ={
     check:false,
     event:null,
 };
-
-let nextJumpPossible = false;
-//Enako kot zgoraj, vendar da se uporablajo druge tipke
-function playerControl(isOnPhone){
-    //Nov feature, z touch eventi ali mouse clickom lahko uničuješ mapo - ne dela zaenkrat zaradi reimplementacije s kamero
-    if(canDestory.check){
-        let posX = Math.ceil(worldOffsetX+canDestory.event.pageX/tileSide) - Math.floor(tileOffsetX/tileSide);
-        let posY = Math.ceil(canDestory.event.pageY/tileSide + tileOffsetY+0.25);
-        if(map[posY][posX]===1 && posY!=1){
-            map[posY][posX]=0;
+let mouseHoldDown = false;
+function clickControl() {
+    //Nov feature, z touch eventi ali mouse clickom lahko uničuješ mapo - preveri če dela na telefonu ?
+    if(canDestory.check && !mouseHoldDown){
+        mouseHoldDown = true;
+        let posX = Math.floor(camera.x+canDestory.event.pageX/tileSide);
+        let posY = Math.floor(canDestory.event.pageY/tileSide)+1;
+        console.log(posX + "," + posY);
+        if(map[posY][posX] === 1 && posY != 1){
+            map[posY][posX] = 0;
         }
     }
+
+    if(!canDestory.check) {
+        mouseHoldDown = false;
+    }
+}
+
+let nextJumpPossible = false;
+function playerControl(isOnPhone){
 
     let pressJump = (!isOnPhone && keys[38]) || (isOnPhone && keys[422]);
     let pressBuild = (!isOnPhone && keys[32]) || (isOnPhone && keys[423]);
