@@ -17,7 +17,7 @@ Made by Primož Pečar, fri vsš 2 letnik
 //Globalni variabli, uporabljeni čez cel projekt
 //Čeprav uporabljam EMCA script 6, je problem na iOS-u, saj mu ni všeč da so globalne spremenjljivke definirane z let/const
 //popravil tako da uporabim var
-var canvas, ctx, width, height, player,
+var canvas, ctx, width, height, player, camera,
     worldOffsetX = 0,
     tileOffsetX = 0,
     worldOffsetY = 0,
@@ -104,6 +104,7 @@ document.body.addEventListener("keyup", function(e) {
 const initGame = function(){
     onphone=checkIfRunningOnPhone();
     initCanvas();
+    initCamera();
     initPlayer();
     initTiles();
     initAutio();
@@ -156,8 +157,18 @@ const initGame = function(){
             tileSide=Math.round(width/25);
         }
         //Viewpoint igralca, rabimo za izris igralne površine
-        widthCols=tileSide;
+        widthCols=Math.ceil(width/tileSide);
         heightCols=Math.ceil(height/tileSide);
+    }
+
+    function initCamera(){
+        camera = {
+            x: 0,
+            y: 0,
+            width: canvas.width/tileSide,
+            height: canvas.height/tileSide,
+            relativeCenter: Math.floor(canvas.width/tileSide/2)
+        }
     }
 
     /*
@@ -349,22 +360,22 @@ const initGame = function(){
 };
 
 /*
- * Inicializacija igralca, na začetku ga postavimo na četrt ekrana, nastavimo hitrost, ali skače, doublejump
+ * Inicializacija igralca, nastavimo hitrost, ali skače, doublejump
  * funkcijo za izris
  *
  */
-function initPlayer(){
+function initPlayer() {
     player = {
-        x : widthCols/4,
+        x : 2*widthCols/3,
         y : heightCols/2,
         width : 1,
         height : 1,
-        speed : 0.15,
+        speed : 0.1,
         jumping: false,
         numofjumps: powerJumps,
         draw: function(){
-            ctx.drawImage(tiles[8],Math.floor(this.x*tileSide),Math.floor(this.y*tileSide),Math.floor(this.width*tileSide),
-                Math.floor(this.height*tileSide)+7)
+            let onScreenX = this.x - camera.x;
+            ctx.drawImage(tiles[8], onScreenX*tileSide, this.y*tileSide, this.width*tileSide, this.height*tileSide);
         }
     }
 }
@@ -423,43 +434,30 @@ const draw = function (){
     }
     player.draw();
 
+    // draw debug hud
+    coin.innerHTML = "<br/>Player pos: (" + player.x + "," + player.y + ")<br/>" + "Camera pos,rel.center: (" + camera.x + "," + camera.y + "," + camera.relativeCenter + ")<br/>";
+
     /*
      * Funkcija za izris same mape, +4, -4 zaradi tega ker moramo pre-renderat vsaj nekaj frame-ov naprej, da je
      * smooth transition med premikanjem.
      */
 
     function drawTileMap(){
-        //+3, ker izrisujemo en tile prej(levo), ker indeksiramo z 0, in tile za tem
-        let posX=-Math.floor(tileSide);
-        let posY=-Math.floor(tileSide);
-        for(let i=worldOffsetY; i<heightCols+worldOffsetY+4; i++){
-            for(let j=worldOffsetX; j<widthCols+worldOffsetX+4; j++){
-                if(map[i][j]===1){
-                    ctx.drawImage(tiles[1],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY),tileSide,tileSide);
-                }
-                else if(map[i][j]===2){
-                    ctx.drawImage(tiles[6],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY),tileSide,tileSide);
-                }
-                else if(map[i][j]===3){
-                    ctx.drawImage(tiles[7],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY),tileSide,tileSide);
-                }
-                else if(map[i][j]===7){
-                    ctx.drawImage(tiles[10],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY),tileSide,tileSide);
-                }
-                else if(map[i][j]===11){
-                    ctx.drawImage(tiles[11],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY),tileSide,tileSide);
-                }
+        let startX = Math.floor(camera.x);
+        let endX = startX + camera.width;
+        let offsetX = -camera.x + startX;
 
-                else{
-                    ctx.drawImage(tiles[0],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY),tileSide,tileSide);
-                }
-                if(map[i][j]===9){
-                    ctx.drawImage(tiles[9],Math.round(posX+tileOffsetX),Math.round(posY+tileOffsetY)-128+tileSide,70,128);
-                }
-                posX+=tileSide
+        for (let h = 0; h < map.length; h++) {
+            for (let r = startX-3; r <= endX+3; r++) {
+                let tileId = map[h][r];
+                let x = (r - startX) + offsetX;
+                if(tileId === 1)        ctx.drawImage(tiles[1], x*tileSide, (h-1)*tileSide, tileSide, tileSide);
+                else if(tileId === 2)   ctx.drawImage(tiles[6], x*tileSide, (h-1)*tileSide, tileSide, tileSide);
+                else if(tileId === 3)   ctx.drawImage(tiles[7], x*tileSide, (h-1)*tileSide, tileSide, tileSide);
+                else if(tileId === 7)   ctx.drawImage(tiles[10], x*tileSide, (h-1)*tileSide, tileSide, tileSide);
+                else if(tileId === 11)  ctx.drawImage(tiles[11], x*tileSide, (h-1)*tileSide, tileSide, tileSide);
+                //else                    ctx.drawImage(tiles[0], x*tileSide, (h-1)*tileSide, tileSide, tileSide);
             }
-            posX=-tileSide;
-            posY+=tileSide;
         }
     }
 };
@@ -575,7 +573,7 @@ let canDestory ={
  *Funkcija, ki je potrebna za pravilno obnašanje na telefonu, problem je bil z key-i, ker v resnici ne uporablamo
  * tipk, vendar vežemo event listenerje na dom objekte, teli pa poslušajo ali smo tappali, ali ne.
  */
-function mobileBasedGame(){
+function mobileBasedGame(){/*
     //Nov feature, z touch eventi ali mouse clickom lahko uničuješ mapo
     if(canDestory.check){
         let posX = Math.ceil(worldOffsetX+canDestory.event.touches[0].pageX/tileSide) - Math.floor(tileOffsetX/tileSide+0.25);
@@ -642,7 +640,7 @@ function mobileBasedGame(){
     }
 
     //Gravitacija vedno vpliva navzdol
-    player.y+=gravity
+    player.y+=gravity*/
 }
 
 
@@ -657,25 +655,36 @@ function computerBasedGame(){
     }
 
 
-    if(collisionDetectionSpecificUp()){
-        gravity+=0.3;
-        player.y+=player.speed;
+    if(isCollisionAbove()) {
+        gravity += 0.3;
+        //player.y+=gravity;
     }
 
-    if(collisionDetectionSpecificDown()){
+    /*if(collisionDetectionSpecificDown()){
         nextJumpPossible=false;
         canBuild=false;
         player.jumping=false;
         player.numofjumps=powerJumps;
-        gravity=player.speed
+        gravity=player.speed;
+    }*/
+
+    if(isCollisionBelow()) {
+        nextJumpPossible = true;
+        player.jumping = false;
+        player.numofjumps=powerJumps;
+
+        gravity = 0;
+        player.y = Math.floor(player.y);
     }
-    if(!collisionDetectionSpecificDownDontChange() && !player.jumping){
+
+
+    if(!isCollisionBelow() && !player.jumping){
         player.jumping=true;
-        canBuild=true
+        canBuild=true;
     }
-    if(!collisionDetectionSpecificDownDontChange() && player.numofjumps>0 && !keys[38]){
+    if(!isCollisionBelow() && player.numofjumps>0 && !keys[38]){
         nextJumpPossible=true;
-        canBuild=true
+        canBuild=true;
     }
     if(player.jumping && nextJumpPossible && keys[38] && player.numofjumps>0){
         canBuild=true;
@@ -684,7 +693,7 @@ function computerBasedGame(){
         player.numofjumps--;
     }
 
-    if(collisionDetectionSpecificDownDontChange() && !player.jumping){
+    if(isCollisionBelow() && !player.jumping){
         player.y=player.y-player.speed;
         if(keys[38]){
             playJump();
@@ -703,7 +712,7 @@ function computerBasedGame(){
         gravity+=0.03
     }
 
-    player.y+=gravity
+    player.y+=gravity;
 }
 
 //Funkcije za predvajanje zvoka
@@ -765,6 +774,58 @@ function checkIfIsSpeed(i,j){
  * Preverjamo 3 različne stvari, če je sonce, povečamo score, če je luna povečamo powerup, če je tile pravilno popravimo
  * pozicijo playerja.
  */
+
+function isCollisionRight() {
+    let x = player.x + player.width;
+    let y = player.y + player.height;
+    let tileX = Math.ceil(x);
+    let tileToRight = map[Math.round(y)][tileX];
+
+    if(tileToRight === 1) if(tileX - x < 0.075) return true;
+
+    return false;
+}
+
+function isCollisionLeft() {
+    let x = player.x;
+    let y = player.y + player.height;
+    let tileX = Math.floor(x)-1;
+    let tileToLeft = map[Math.round(y)][tileX];
+
+    if(tileToLeft === 1) if(x - tileX-1 < 0.075) return true;
+
+    return false;
+}
+
+function isCollisionBelow() {
+    let x1 = player.x;
+    let x2 = player.x + player.width;
+    let y = player.y + player.height;
+    let tileY = Math.ceil(player.y + player.height);
+
+    let tileLeft = map[tileY][Math.floor(x1)];
+    let tileRight = map[tileY][Math.floor(x2)];
+
+    if(tileLeft === 1 || tileRight === 1) {
+        return true;
+    }
+
+    return false;
+}
+
+function isCollisionAbove() {
+    let x1 = player.x;
+    let x2 = player.x + player.width;
+    let y = player.y;
+    let tileY = Math.floor(y);
+
+    let tileLeft = map[tileY][Math.floor(x1)];
+    let tileRight = map[tileY][Math.floor(x2)];
+
+    if(tileLeft === 1 || tileRight === 1) if(y - tileY < 0.075) return true;
+
+    return false;
+}
 
 //Testiranje če se zabijemo gor
 function collisionDetectionSpecificUp(){
@@ -1318,28 +1379,33 @@ const controls = () =>{
      *
      */
     function keyboardControls() {
+        camera.x = player.x - camera.relativeCenter;
         //desno
-        if (keys[39] ||keys[421]) {
-            distance_traveled+=player.speed*tileSide;
-            collisionDetectionSpecificRight();
-            if(player.x+player.width>(canvas.width/widthCols)-widthCols/4){
-                if(Math.abs(tileOffsetX)>=tileSide){
-                    tileOffsetX=0;
-                    worldOffsetX++;
-                }
-                else{
-                    distance_traveled-=player.speed*tileSide;
-                    tileOffsetX-=player.speed*tileSide;
-                }
-            }
-            else
+        if (keys[39] || keys[421]) {
+            if(!isCollisionRight()) {
                 player.x+=player.speed;
+                distance_traveled += player.speed*tileSide;
+            }
+            //collisionDetectionSpecificRight();
+            /*if(player.x+player.width > (canvas.width/widthCols)-(widthCols/4) ) {
+                if(Math.abs(tileOffsetX) >= tileSide) {
+                    tileOffsetX = 0;
+                    worldOffsetX++;
+                } else {
+                    distance_traveled -= player.speed*tileSide;
+                    tileOffsetX -= player.speed*tileSide;
+                }
+            }*/
         }
         //levo
         if (keys[37] || keys[420]) {
-            distance_traveled-=player.speed*tileSide;
-            collisionDetectionSpecificLeft();
-            if(player.x<widthCols/4){
+            if(!isCollisionLeft()) {
+                player.x-=player.speed;
+                distance_traveled-=player.speed*tileSide;
+            }
+            //collisionDetectionSpecificLeft();
+
+            /*if(player.x<widthCols/4){
                 if(tileOffsetX>=tileSide){
                     tileOffsetX=0;
                     worldOffsetX--;
@@ -1348,9 +1414,7 @@ const controls = () =>{
                     distance_traveled+=player.speed*tileSide;
                     tileOffsetX+=player.speed*tileSide;
                 }
-            }
-            else
-                player.x-=player.speed;
+            }*/
         }
     }
 };
