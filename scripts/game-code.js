@@ -17,16 +17,13 @@ Made by Primož Pečar, fri vsš 2 letnik
 //Globalni variabli, uporabljeni čez cel projekt
 //Čeprav uporabljam EMCA script 6, je problem na iOS-u, saj mu ni všeč da so globalne spremenjljivke definirane z let/const
 //popravil tako da uporabim var
-var canvas, ctx, width, height, player, camera, hudElements,
-    worldOffsetX = 0,
-    worldOffsetY = 0,
+var canvas, ctx, width, height, player, camera, hudElements, audio
     tileSide = 0,
     gravity = 0.2,
     player_hp=3,
     num_of_platforms=5,
     powerJumps=5,
-    player_coins=0,
-    distance_traveled=0;
+    player_coins=0;
 
 var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
@@ -39,7 +36,6 @@ var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 const keys = [];
 const map = [];
 const tiles = [];
-const all_audio=[];
 let widthCols = -1;
 let heightCols = -1;
 
@@ -104,8 +100,8 @@ const initGame = function(){
     initHudElements();
     initPlayer();
     initTiles();
-    initAutio();
-    all_audio[2].play();
+    initAudio();
+    audio.music.track1.play();
     createTileMap();
     makeMapDynamic();
     generateRandomPowerUps();
@@ -140,7 +136,7 @@ const initGame = function(){
                     mytiles.innerHTML=0;
                     createTileMap();
                     makeMapDynamic();
-                    clearPlayerArea(Math.ceil(player.y));
+                    clearPlayerArea();
                 }
             })
         }
@@ -408,26 +404,37 @@ function initPlayer() {
  * zvokov brez dovoljenja igralca, za to je to feature, ki je podprt samo na PC-ju.
  *
  */
-function initAutio(){
-    let jump = new Audio();
-    jump.src="./sounds/jump.mp3";
-    all_audio.push(jump);
-    let coin = new Audio();
-    coin.src='./sounds/coin.mp3';
-    all_audio.push(coin);
-    let general_sounds= new Audio();
-    general_sounds.src='./sounds/music.mp3';
-    general_sounds.loop = true;
-    all_audio.push(general_sounds);
-    let gamewin = new Audio();
-    gamewin.src="./sounds/gamewin.mp3";
-    all_audio.push(gamewin);
-    let gameloose = new Audio();
-    gameloose.src="./sounds/gameover.mp3";
-    all_audio.push(gameloose);
-    let hit = new Audio();
-    hit.src="./sounds/hit.mp3";
-    all_audio.push(hit);
+function initAudio() {
+    audio = {}
+
+    let jump1 = new Audio(); jump1.src="./sounds/jump1.wav";
+    let jump2 = new Audio(); jump2.src="./sounds/jump2.wav";
+    audio.jump1 = jump1;
+    audio.jump2 = jump2;
+    
+    let pickup1 = new Audio(); pickup1.src='./sounds/pickup1.wav';
+    let pickup2 = new Audio(); pickup2.src='./sounds/pickup2.wav';
+    audio.pickup1 = pickup1;
+    audio.pickup2 = pickup2;
+
+    let powerup1 = new Audio(); powerup1.src='./sounds/powerup1.wav';
+    let powerup2 = new Audio(); powerup2.src='./sounds/powerup2.wav';
+    audio.powerup1 = powerup1;
+    audio.powerup2 = powerup2;
+
+    let gamewin = new Audio(); gamewin.src="./sounds/gamewin.mp3";
+    let gamelose = new Audio(); gamelose.src="./sounds/gameover.mp3";
+    audio.gamewin = gamewin;
+    audio.gamelose = gamelose;
+    
+    let hit = new Audio(); hit.src="./sounds/hit.mp3";
+    audio.hit = hit;
+
+    music = {}
+    audio.music = music;
+
+    let track1 = new Audio(); track1.src='./sounds/music.mp3'; track1.loop = true;
+    audio.music.track1 = track1;
 }
 
 /************************** END INIT *********************************/
@@ -509,7 +516,7 @@ function generateEnemy(){
  * Preverjane ali je potrebno izrisati sovražnika
  */
 function checkIfEnemyInRange(){
-    for(let i=0; i<widthCols+worldOffsetX; i++){
+    for(let i=0; i<widthCols; i++){
         if(map[0][i] instanceof Object){
             if(map[0][i].x<0){
                 map[0][i]=0
@@ -525,8 +532,8 @@ function checkIfEnemyInRange(){
  */
 function initEnemy(){
     enemy = {
-        x : widthCols-widthCols/12+worldOffsetX,
-        y : heightCols/2+worldOffsetY,
+        x : camera.x+camera.width,
+        y : heightCols/2,
         width : 1,
         height : 1,
         speed : generateSpeed(),
@@ -534,12 +541,11 @@ function initEnemy(){
         walkframe: 0,
         downtime: 9,
         bounced:false,
-        draw: function(){
-            ctx.drawImage(tiles[5],Math.floor(this.x*tileSide),Math.floor(this.y*tileSide),Math.floor(this.width*tileSide),
-                Math.floor(this.height*tileSide))
+        draw: function() {
+            let onScreenX = this.x - camera.x;
+            ctx.drawImage(tiles[5], onScreenX, this.y*tileSide, this.width*tileSide, this.height*tileSide);
         },
         movement: function () {
-
             if(this.bounced){
                 this.y-=this.speed;
                 this.downtime+=this.speed;
@@ -630,7 +636,8 @@ function playerControl(isOnPhone){
 
     if(isCollisionBelow() && !player.airborne) {
         if(pressJump) {
-            playJump();
+            audio.jump2.play();
+            audio.jump2.currentTime = 0;
             gravity = -0.45;
             player.airborne = true;
             player.canBuild = true;
@@ -644,7 +651,8 @@ function playerControl(isOnPhone){
     if(player.airborne && nextJumpPossible && pressJump){
         nextJumpPossible = false;
         gravity = -0.5;
-        playJump();
+        audio.jump2.play();
+        audio.jump2.currentTime = 0;
         player.numofjumps--;
     }
 
@@ -666,17 +674,6 @@ function playerControl(isOnPhone){
     if(gravity < -0.5) gravity = -0.5;
 
     player.y+=gravity;
-}
-
-//Funkcije za predvajanje zvoka
-function playJump(){
-    all_audio[0].play();
-    all_audio[0].currentTime = 0;
-}
-
-function playCoin(){
-    all_audio[1].play();
-    all_audio[1].currentTime = 0;
 }
 
 function handleWindowResize() {
@@ -779,19 +776,26 @@ function collisionWithSomething(x, y) {
     switch(tileType) {
         case 3: // sun pickup
             map[y][x] = 0;
-            playCoin();
+            audio.pickup1.play();
+            audio.pickup1.currentTime = 0;
             player_coins++;
             break;
         case 2: // moon pickup
             map[y][x] = 0;
+            audio.pickup2.play();
+            audio.pickup2.currentTime = 0;
             num_of_platforms += 2;
             break;
         case 7: // heart pickup
             map[y][x] = 0;
+            audio.powerup1.play();
+            audio.powerup1.currentTime = 0;
             player_hp++;
             break;
         case 11: // speed pickup
             map[y][x] = 0;
+            audio.powerup2.play();
+            audio.powerup2.currentTime = 0;
             player.speed += 0.02;
             break;
     }
@@ -806,25 +810,11 @@ function respawnPlayer() {
     let tempX = player.x;
     initPlayer();
     player.x = tempX - 10;
-    
+
+    clearPlayerArea();
+
     let pY = Math.ceil(player.y);
     let pX = Math.ceil(player.x);
-
-    map[pY-1][pX-2]=0;
-    map[pY-1][pX-1]=0;
-    map[pY-1][pX  ]=0;
-    map[pY-1][pX+1]=0;
-
-    map[pY  ][pX-2]=0;
-    map[pY  ][pX-1]=0;
-    map[pY  ][pX  ]=0;
-    map[pY  ][pX+1]=0;
-    
-    map[pY+1][pX-2]=0;
-    map[pY+1][pX-1]=0;
-    map[pY+1][pX  ]=0;
-    map[pY+1][pX+1]=0;
-
     map[pY+2][pX-2]=1;
     map[pY+2][pX-1]=1;
     map[pY+2][pX  ]=1;
@@ -835,7 +825,7 @@ function respawnPlayer() {
 // igralno površino, iz katere se bo lahko normalno premikal naprej.
 function checkIfDied() {
     if(Math.floor(player.y) > heightCols) {
-        all_audio[5].play();
+        audio.hit.play();
         try {
             window.navigator.vibrate(200);
         } catch(err){
@@ -858,7 +848,7 @@ function checkIfDied() {
 
 //Ubijemo igralca, potrebno za kolizijo med sovražnikom
 function killPlayer() {
-    all_audio[5].play();
+    audio.hit.play();
     try {
     window.navigator.vibrate(500);
     }
@@ -871,33 +861,32 @@ function killPlayer() {
 
 }
 
-function clearPlayerArea(playerpos){
-    if(playerpos>3){
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+2]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-2][Math.ceil(player.x+worldOffsetX)-1]=0;
+function clearPlayerArea(){
+    let pY = Math.ceil(player.y);
+    let pX = Math.ceil(player.x);
+    
+    if(pY <= 3) pY = 5;
+    map[pY-1][pX-2]=0;
+    map[pY-1][pX-1]=0;
+    map[pY-1][pX  ]=0;
+    map[pY-1][pX+1]=0;
 
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+2]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)-1][Math.ceil(player.x+worldOffsetX)-1]=0;
-
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+2]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)+1]=0;
-        map[Math.ceil(player.y+worldOffsetY)][Math.ceil(player.x+worldOffsetX)-1]=0;
-    }
+    map[pY  ][pX-2]=0;
+    map[pY  ][pX-1]=0;
+    map[pY  ][pX  ]=0;
+    map[pY  ][pX+1]=0;
+    
+    map[pY+1][pX-2]=0;
+    map[pY+1][pX-1]=0;
+    map[pY+1][pX  ]=0;
+    map[pY+1][pX+1]=0;
 }
 
 //Nastavimo endgame screen, ugasnim igro na grd način vedar deluje, za ponoven zagon samo refreshamo igro
 function endGameLose(){
     let end = document.getElementById("end");
     end.innerHTML="YOU LOST<br> your score was "+player_coins+", <br> You traveled "+Math.floor(player.x)+" blocks";
-    all_audio[4].play();
+    audio.gamelose.play();
     ctx=null;
 
 }
@@ -906,7 +895,7 @@ function checkIfGameWon(){
     if(parseInt(document.getElementById("coin").innerHTML)>30) {
         let end = document.getElementById("end");
         end.innerHTML = "YOU WON<br> CONGRATS MY DUDE <br> You traveled "+Math.floor(player.x)+"blocks";
-        all_audio[3].play();
+        audio.gamewin.play();
         ctx = null;
     }
 }
@@ -965,8 +954,8 @@ function initMobileControls(){
     },{passive:true});
     canvas.addEventListener("touchstart", function (e) {
         canDestory.check=true;
-        all_audio[0].play();
-        all_audio[0].pause();
+        audio.pickup1.play()
+        audio.pickup1.pause();
         canDestory.event=e;
 
     },{passive:true});
