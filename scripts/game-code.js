@@ -472,20 +472,6 @@ const draw = function (){
     enemy.x-=0.15;
     enemy.draw();
 
-    /*let currEnemy=checkIfEnemyInRange();
-    if(currEnemy instanceof Object){
-        if(Math.floor(currEnemy.x)===Math.floor(player.x) && Math.floor(currEnemy.y)===Math.floor(player.y) ||
-            Math.ceil(currEnemy.x)===Math.ceil(player.x) && Math.ceil(currEnemy.y)===Math.ceil(player.y) ||
-            Math.floor(currEnemy.x)===Math.floor(player.x) && Math.ceil(currEnemy.y)===Math.ceil(player.y) ||
-            Math.ceil(currEnemy.x)===Math.ceil(player.x) && Math.floor(currEnemy.y)===Math.floor(player.y)){
-            killPlayer()
-        }
-        currEnemy.draw();
-        currEnemy.movement();
-        currEnemy.x-=0.2
-
-    }
-    */
     player.draw();
 
     // draw debug hud
