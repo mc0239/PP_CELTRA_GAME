@@ -8,6 +8,7 @@ This is a fork. Please check out main repo for README.md
 
  * Lanea Zimmerman, dirt tiles used in this game, also the moon and background https://opengameart.org/users/sharm
  * Buch @ https://opengameart.org/users/buch; the knight as the enemy
+ * Visager (http://visager.us/) (http://freemusicarchive.org/music/Visager/) for music licensed under CC-BY 4.0
 
 ### DISCLAIMER
 

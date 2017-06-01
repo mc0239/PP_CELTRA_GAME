@@ -17,8 +17,11 @@ Made by Primož Pečar, fri vsš 2 letnik
 //Globalni variabli, uporabljeni čez cel projekt
 //Čeprav uporabljam EMCA script 6, je problem na iOS-u, saj mu ni všeč da so globalne spremenjljivke definirane z let/const
 //popravil tako da uporabim var
-var canvas, ctx, width, height, player, camera, hudElements, audio
-    tileSide = 0,
+var canvas, ctx, width, height,
+    player, enemy, camera,
+    hudElements, audio;
+
+var tileSide = 0,
     gravity = 0.2,
     player_hp=3,
     num_of_platforms=5,
@@ -80,6 +83,8 @@ document.body.addEventListener("keyup", function(e) {
     keys[e.keyCode] = false;
 });
 
+function getRandomIntInclusive(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
 /*
  * Inicializacija same igre
  * onphone --> preverimo, če je trenutna naprava telefon, na podlagi tega spremenimo način igranja
@@ -101,10 +106,15 @@ const initGame = function(){
     initPlayer();
     initTiles();
     initAudio();
-    audio.music.track1.play();
     createTileMap();
     makeMapDynamic();
     generateRandomPowerUps();
+
+    switch(Math.floor( (Math.random()*100)%3+1)) {
+        case 1: audio.music.track1.play(); break;
+        case 2: audio.music.track2.play(); break;
+        case 3: audio.music.track3.play(); break;
+    }
 
     function initCanvas() {
         canvas=document.getElementById("canvas");
@@ -427,14 +437,20 @@ function initAudio() {
     audio.gamewin = gamewin;
     audio.gamelose = gamelose;
     
-    let hit = new Audio(); hit.src="./sounds/hit.mp3";
-    audio.hit = hit;
+    let hit1 = new Audio(); hit1.src="./sounds/hit1.wav";
+    let hit2 = new Audio(); hit2.src="./sounds/hit2.wav";
+    audio.hit1 = hit1;
+    audio.hit2 = hit2;
 
     music = {}
     audio.music = music;
 
-    let track1 = new Audio(); track1.src='./sounds/music.mp3'; track1.loop = true;
+    let track1 = new Audio(); track1.src='./sounds/track1.mp3'; track1.loop = true; track1.volume = 0.35;
+    let track2 = new Audio(); track2.src='./sounds/track2.mp3'; track2.loop = true; track2.volume = 0.35;
+    let track3 = new Audio(); track3.src='./sounds/track3.mp3'; track3.loop = true; track3.volume = 0.35;
     audio.music.track1 = track1;
+    audio.music.track2 = track2;
+    audio.music.track3 = track3;
 }
 
 /************************** END INIT *********************************/
@@ -451,7 +467,12 @@ const draw = function (){
     
     drawTileMap();
     
-    let currEnemy=checkIfEnemyInRange();
+    enemy.movement();
+    enemy.collisionWith(player.x, player.y, player.width, player.height);
+    enemy.x-=0.15;
+    enemy.draw();
+
+    /*let currEnemy=checkIfEnemyInRange();
     if(currEnemy instanceof Object){
         if(Math.floor(currEnemy.x)===Math.floor(player.x) && Math.floor(currEnemy.y)===Math.floor(player.y) ||
             Math.ceil(currEnemy.x)===Math.ceil(player.x) && Math.ceil(currEnemy.y)===Math.ceil(player.y) ||
@@ -464,7 +485,7 @@ const draw = function (){
         currEnemy.x-=0.2
 
     }
-    
+    */
     player.draw();
 
     // draw debug hud
@@ -502,13 +523,13 @@ const draw = function (){
 /*
  * Nastavitve za enemy-je, na vsake 30+65*i blokcov en enemy, št. enemijev je omejeno na 100
  */
-let distanceBetweenEnemy=30;
-let num_of_enemy=0;
+//let distanceBetweenEnemy=30;
+//let num_of_enemy=0;
 function generateEnemy(){
-    if(num_of_enemy<100){
-        map[0][distanceBetweenEnemy]=initEnemy();
-        distanceBetweenEnemy+=65;
-        num_of_enemy++;
+    if(enemy == null){
+        enemy = initEnemy();
+        //distanceBetweenEnemy+=65;
+        //num_of_enemy++;
     }
 }
 
@@ -543,7 +564,7 @@ function initEnemy(){
         bounced:false,
         draw: function() {
             let onScreenX = this.x - camera.x;
-            ctx.drawImage(tiles[5], onScreenX, this.y*tileSide, this.width*tileSide, this.height*tileSide);
+            ctx.drawImage(tiles[5], onScreenX*tileSide, this.y*tileSide, this.width*tileSide, this.height*tileSide);
         },
         movement: function () {
             if(this.bounced){
@@ -560,11 +581,18 @@ function initEnemy(){
             else if(this.downtime<=0){
                 this.bounced=true;
             }
+        },
+        collisionWith: function(othrX, othrY, othrW, othrH) {
+            let enem = {x: this.x, y: this.y, width: this.width, height: this.height};
+            let othr = {x: othrX, y: othrY, width: othrW, height: othrH};
+
+            if (enem.x < othr.x + othr.width && enem.x + enem.width > othr.x && enem.y < othr.y + othr.height && enem.height + enem.y > othr.y) {
+                // collision with othr!
+                killPlayer();
+            }
         }
     };
-    function generateSpeed(){
-        return (Math.random()*0.5)+0.1
-    }
+    function generateSpeed() { return (Math.random()*0.35)+0.1; }
     return enemy;
 }
 
@@ -825,7 +853,7 @@ function respawnPlayer() {
 // igralno površino, iz katere se bo lahko normalno premikal naprej.
 function checkIfDied() {
     if(Math.floor(player.y) > heightCols) {
-        audio.hit.play();
+        audio.hit2.play();
         try {
             window.navigator.vibrate(200);
         } catch(err){
@@ -848,7 +876,7 @@ function checkIfDied() {
 
 //Ubijemo igralca, potrebno za kolizijo med sovražnikom
 function killPlayer() {
-    audio.hit.play();
+    audio.hit2.play();
     try {
     window.navigator.vibrate(500);
     }
