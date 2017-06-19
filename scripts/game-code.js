@@ -19,7 +19,7 @@ Made by Primož Pečar, fri vsš 2 letnik
 //popravil tako da uporabim var
 var canvas, ctx, width, height,
     player, enemy, camera,
-    hudElements, audio;
+    hudElements, audio, music;
 
 var tileSide = 0,
     gravity = 0.2,
@@ -83,8 +83,6 @@ document.body.addEventListener("keyup", function(e) {
     keys[e.keyCode] = false;
 });
 
-function getRandomIntInclusive(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
 /*
  * Inicializacija same igre
  * onphone --> preverimo, če je trenutna naprava telefon, na podlagi tega spremenimo način igranja
@@ -143,12 +141,12 @@ const initGame = function(){
                     //Grd način za reševanje vibrate težav na iOS napravah, sicer deluje normalno
                     }
                     num_of_platforms=0;
-                    mytiles.innerHTML=0;
+                    //mytiles.innerHTML=0;
                     createTileMap();
                     makeMapDynamic();
                     clearPlayerArea();
                 }
-            })
+            });
         }
 
         //Nastavitev velikosti blokcov, spreminja glede na velikost zaslona
@@ -174,7 +172,7 @@ const initGame = function(){
             width: canvas.width/tileSide,
             height: canvas.height/tileSide,
             relativeCenter: Math.floor(canvas.width/tileSide/2)
-        }
+        };
     }
 
     /*
@@ -195,7 +193,7 @@ const initGame = function(){
                 hudElements.coins.innerHTML = player_coins;
                 hudElements.platforms.innerHTML=num_of_platforms;
             }
-        }
+        };
         hudElements.update();
     }
 
@@ -223,13 +221,13 @@ const initGame = function(){
         for(let x=0; x<20; x++){
             let putWhereX= 16;
             for(let i=0; i<preSet.length; i++){
-                for(let j=0; j<preSet[i].length;j++){
+                for(let j=0; j<preSet[i].length; j++){
                     if(preSet[i][j]==1){
-                        map[11+i][putWhereX+j]=1
+                        map[11+i][putWhereX+j]=1;
                     }
                 }
             }
-            putWhereX+=20
+            putWhereX+=20;
         }
         //Dodamo zgornji del blokcov, tako igralec ne mora ven iz mape
         for(let h=0; h<100000; h++){
@@ -294,10 +292,10 @@ const initGame = function(){
         //Generacija naključnih zidov
         let numberOfRandomWalls=100;
         let distanceBetweenWalls=30;
-        for(let i=0 ;i<numberOfRandomWalls; i++){
+        for(let i=0; i<numberOfRandomWalls; i++){
             let height = calculateRandomHeight();
             for(let j=0; j<6; j++){
-                map[height+j][distanceBetweenWalls]=1
+                map[height+j][distanceBetweenWalls]=1;
             }
             distanceBetweenWalls+=70+calculateRandomIntervalForPlatforms();
         }
@@ -318,7 +316,7 @@ const initGame = function(){
             let Rwidth = calculatRandomWidth();
             let Rheight = calculateRandomHeight();
             for(let h=0; h<Rwidth; h++){
-                map[Rheight][distanceBetweenFloatingPlatforms+h]=1
+                map[Rheight][distanceBetweenFloatingPlatforms+h]=1;
             }
             distanceBetweenFloatingPlatforms+=30+calculateRandomIntervalForPlatforms();
         }
@@ -406,7 +404,7 @@ function initPlayer() {
             let onScreenX = this.x - camera.x;
             ctx.drawImage(tiles[8], onScreenX*tileSide, this.y*tileSide, this.width*tileSide, this.height*tileSide);
         }
-    }
+    };
 }
 
 /*
@@ -415,13 +413,13 @@ function initPlayer() {
  *
  */
 function initAudio() {
-    audio = {}
+    audio = {};
 
     let jump1 = new Audio(); jump1.src="./sounds/jump1.wav";
     let jump2 = new Audio(); jump2.src="./sounds/jump2.wav";
     audio.jump1 = jump1;
     audio.jump2 = jump2;
-    
+
     let pickup1 = new Audio(); pickup1.src='./sounds/pickup1.wav';
     let pickup2 = new Audio(); pickup2.src='./sounds/pickup2.wav';
     audio.pickup1 = pickup1;
@@ -436,13 +434,13 @@ function initAudio() {
     let gamelose = new Audio(); gamelose.src="./sounds/gameover.mp3";
     audio.gamewin = gamewin;
     audio.gamelose = gamelose;
-    
+
     let hit1 = new Audio(); hit1.src="./sounds/hit1.wav";
     let hit2 = new Audio(); hit2.src="./sounds/hit2.wav";
     audio.hit1 = hit1;
     audio.hit2 = hit2;
 
-    music = {}
+    music = {};
     audio.music = music;
 
     let track1 = new Audio(); track1.src='./sounds/track1.mp3'; track1.loop = true; track1.volume = 0.35;
@@ -464,19 +462,21 @@ function initAudio() {
 
 const draw = function (){
     ctx.clearRect(0,0, width, height);
-    
+
     drawTileMap();
-    
-    enemy.movement();
-    enemy.collisionWith(player.x, player.y, player.width, player.height);
-    enemy.x-=0.15;
-    enemy.draw();
+
+    if(typeof myVar != 'undefined') {
+        enemy.movement();
+        enemy.collisionWith(player.x, player.y, player.width, player.height);
+        enemy.x-=0.15;
+        enemy.draw();
+    }
 
     player.draw();
 
     // draw debug hud
-    hudElements.debug.innerHTML = 
-        "Player (x,y,air,build): (" + Math.round(player.x*1000)/1000 + "," + Math.round(player.y*1000)/1000 + ",<br />" + player.airborne + "," + player.canBuild + ")<br/>" + 
+    hudElements.debug.innerHTML =
+        "Player (x,y,air,build): (" + Math.round(player.x*1000)/1000 + "," + Math.round(player.y*1000)/1000 + ",<br />" + player.airborne + "," + player.canBuild + ")<br/>" +
         "Camera (x,y,rcnt): (" + Math.round(camera.x*1000)/1000 + "," + Math.round(camera.y*1000)/1000 + "," + camera.relativeCenter + ")<br/>" +
         "Misc (mHoldD,nJmpPsbl): (" + mouseHoldDown + "," + nextJumpPossible + ")<br />";
 
@@ -526,7 +526,7 @@ function checkIfEnemyInRange(){
     for(let i=0; i<widthCols; i++){
         if(map[0][i] instanceof Object){
             if(map[0][i].x<0){
-                map[0][i]=0
+                map[0][i]=0;
             }
             return map[0][i];
         }
@@ -578,7 +578,7 @@ function initEnemy(){
             }
         }
     };
-    function generateSpeed() { return (Math.random()*0.35)+0.1; }
+    function generateSpeed() { return (Math.random()*0.35)+0.1 }
     return enemy;
 }
 
@@ -590,7 +590,7 @@ function initEnemy(){
 function update(){
     playerControl(onphone);
     clickControl();
-    
+
     generateEnemy();
     controls();
 
@@ -705,18 +705,7 @@ function handleWindowResize() {
 function checkIfIsFloor(i,j){
     return map[i][j]===1;
 }
-function checkIfIsSun(i,j){
-    return map[i][j]===3;
-}
-function checkIfIsMoon(i,j){
-    return map[i][j]===2;
-}
-function checkIfIsHeart(i,j){
-    return map[i][j]===7;
-}
-function checkIfIsSpeed(i,j){
-    return map[i][j]===11;
-}
+
 
 /*
  * Collision detection, above below deluje skorej ok,
@@ -754,7 +743,7 @@ function isCollisionBelow() {
     let x1 = player.x;
     let x2 = player.x + player.width;
     let y = player.y + player.height;
-    let tileY = Math.ceil(player.y + player.height);
+    let tileY = Math.ceil(y);
 
     let tileLeft = map[tileY][Math.floor(x1)];
     let tileRight = map[tileY][Math.floor(x2)];
@@ -870,7 +859,7 @@ function killPlayer() {
         //Grd način za reševanje vibrate težav na iOS napravah, sicer deluje normalno
     }
     player_hp--;
-    hp.innerHTML=player_hp;
+    hudElements.update();
     respawnPlayer();
 
 }
@@ -878,7 +867,7 @@ function killPlayer() {
 function clearPlayerArea(){
     let pY = Math.ceil(player.y);
     let pX = Math.ceil(player.x);
-    
+
     if(pY <= 3) pY = 5;
     map[pY-1][pX-2]=0;
     map[pY-1][pX-1]=0;
@@ -889,7 +878,7 @@ function clearPlayerArea(){
     map[pY  ][pX-1]=0;
     map[pY  ][pX  ]=0;
     map[pY  ][pX+1]=0;
-    
+
     map[pY+1][pX-2]=0;
     map[pY+1][pX-1]=0;
     map[pY+1][pX  ]=0;
@@ -919,7 +908,7 @@ function platformCreator(){
     if(num_of_platforms>0){
         let platY = Math.ceil(player.y)+2;
         let platX = Math.ceil(player.x)-1;
-        
+
         map[platY][platX-2] = 1;
         map[platY][platX-1] = 1;
         map[platY][platX  ] = 1;
@@ -943,32 +932,32 @@ function calculatRandomWidth(){
 function initMobileControls(){
 
     document.getElementById("LEFT").addEventListener("touchstart", function () {
-        keys[420]=true
+        keys[420]=true;
     },{passive:true});
     document.getElementById("LEFT").addEventListener("touchend", function () {
-        keys[420]=false
+        keys[420]=false;
     },{passive:true});
     document.getElementById("RIGHT").addEventListener("touchstart", function () {
-        keys[421]=true
+        keys[421]=true;
     },{passive:true});
     document.getElementById("RIGHT").addEventListener("touchend", function () {
-        keys[421]=false
+        keys[421]=false;
     },{passive:true});
     document.getElementById("JUMP").addEventListener("touchstart", function () {
-        keys[422]=true
+        keys[422]=true;
     },{passive:true});
     document.getElementById("JUMP").addEventListener("touchend", function () {
-        keys[422]=false
+        keys[422]=false;
     },{passive:true});
     document.getElementById("ACTION").addEventListener("touchstart", function () {
-        keys[423]=true
+        keys[423]=true;
     },{passive:true});
     document.getElementById("ACTION").addEventListener("touchend", function () {
-        keys[423]=false
+        keys[423]=false;
     },{passive:true});
     canvas.addEventListener("touchstart", function (e) {
         canDestory.check=true;
-        audio.pickup1.play()
+        audio.pickup1.play();
         audio.pickup1.pause();
         canDestory.event=e;
 
